@@ -99,3 +99,50 @@
  - `Global Enactment`模块负责在业务边界上协调业务成员，应该把它放到外部级别，`Local Enactment`和`Legacy Integration`模块依赖与具体IVE成员的基础设施，应该把他们放到内部级别。
   - 我们没有将任何运行功能放在概念层，因为这需要在模块状态间双重动态映射，概念层是一个根据兴趣的可选项，本地业务流程的设计发生在概念层，接着在`Team Formation`阶段会将它映射到外部级别，在`Local Enactment`中会将她映射到内部级别。然而需要注意的是对该层设计的自动化支持不是我们方法要研究的范围，因为局部业务流程的设计不是针对DBNPM.因此在我们架构中忽略`Process Design`模块
 #### Step 4: Adding Knowledge
+具有IVE能力的系统必须在高层完成一些复杂的任务，因此必须能运用IVE市场，IVE成员，它们的局部业务流程和信息系统设施，等。最终目标是实现一个全自动化的系统。但是现在这样一个系统需要用户干预以及知识库的访问，RQ9中提到过这些。系统的知识会随着IVEs的生命周期而积累，因此后继的IVEs的自动化级别会随时间提升。
+让架构具备支持混合决策(hybrid decision making)要求三类功能:
+- `专用的可交互的用户接口`: 通过这些接口，用户可以参与一些软件模块的决策。
+- `自动化知识库`: 在特定的应用领域(或者市场)积累关于IVE构建与运行的形式化知识。
+- `自动化推理机制`:在系统模块中的高级自动化推理逻辑
+
+在架构的聚合层，高级的自动化推理知识是不可见的，这个问题解决留到后面分析。 首先我们扩展架构的用户接口，以分析单个UI模块(Formation UI)怎么样与`Goal Decomposition`与`Team Formation`模块交互。一个`process engineer`应该讷讷过于`Wotrkflow  Composition`模块交互(同样也可以和Workflow Verification and Prototyping)；因此我们引入`Workflow User Interface`.　最后，IVE中的`operation manager`在运行阶段应该能够监控业务网络流程。因此我们引入`Monitoring User Interface`. 注意，`Local Enactment`模块也需要与终端用户交互，但是这里不是针对DBNPM，会在后面讨论它。
+注意到推理得出的决策，决策可能是负面的，比如，`Workflow Composition`模块发现某个全局工作流不能被组合，这种情况下，系统应该回退，这由图中的红线表示。
+接着，我们应该添加知识库到架构中去，我们列举出以下需要的知识库:
+- `Procduct` : 产品知识库包含产品的在特定的应用领域(由IVEs生成)通用知识及其知识的组合(相当于材料清单)。目标分解模块会使用到它。
+- `Market` : 在市场中组织(或者潜在的IVE成员)的特定知识，他们的能力，他们的局部业务流程。
+- `Infrastructure`: 存在于某个特定组织的关于后端(Legacy)信息系统的知识，这些知识会被`Team Formation`模块使用，避免与他们局部设施不兼容的团队组合。
+- `Workflow Pattern`: 工作流规范模式，被`Workflow Composition`模块的全局工作流的组合使用。
+<centter>
+<img src="img/architecture-design-v4.jpg"/>
+</center>
+## Process View of the Architecture
+在过程视图中，我们决定实现架构的正确的技术选择
+### Technology Platforms for the CrossWork Architecture
+IVE本身包括许多分布式的，自洽的参与方，它们的局部系统必须被整合到全局业务流程中，因此，IVE的自动化必须是高分布式的，系统必须拥有分布式处理。
+分析CrossWork的应用层时，我们看到了IVE构建( front-end)和IVE运行(back-end)平台不同需求,一方面，front-end在面向目标，支持推理机制实现IVE构造算法方面有主要需求。我们选择Multi-Agent System（MAS)平台作为前端应用层的基础。另一方面，balck-end平台的需求和与可移植性和互操作性有关，使得系统支持在分布式异构环境运行IVE流程
+选择两个平台，但是他们如何组合在一起呢，一种思路是将面向代理的模块的封装到面向服务的包装器。反过来的思路是将面向服务的模块封装到面向代理的包装器。这两种方案都导致层次的解决方案。然而前后端的需求截然不同，我们决定不采用层次的方案，而是同时并排(side-to-side)采用代理技术和服务技术。
+<centter>
+<img src="img/crosswork-technology-stack.jpg"/>
+</center>
+
+- 在多代理系统，BPM技术被嵌入，处理业务流程规范，最明显的是全局业务流程组合。在面向服务环境，WFM技术被嵌入，用于业务流程执行。显然side-to-side方法需要在两个环境有接口。
+- 确定平台的技术，我们需要去选择规范的语言。在前端，我们需要一个业务流程规范语言，它需要充分表达IVE配置的各个相关方面，这里我们开发了eSML语言。可操作性以及易操作是eSML的主要特性。对于后端，全局流程引擎的互操作性与可移植性是主要的筛选条件，很必要有标准语言来支持，给定网络上下文，BPEL是明显的选择。
+- 前后端在平台和语言上都不同，我们需要一个中间接口去消除二者之间的差别，于是我们开发了一个`paradigm bridge`，将eSML翻译成BPEL与MAS与SOC间的通讯。
+<centter>
+<img src="img/paradigm-bridge.png"/>
+</center>
+
+### The Service-Oriented Back-End
+使用最先进的SOC技术，IVEs中，后端能够支持动态组合的全局业务流程的执行。我们在流程执行上层两级处理的方法:全局流程编排与局部业务流程执行，如此，我们实现了IVE级别业务流程同步与局部业务流程执行的关注点分离，同时实现了全局与局部业务流程管理技术的解耦。
+后端的三个模块的介绍后面会详细介绍
+
+## Development View of the Architecture
+## Physical View of the Architecture
+物理视图描述了组件在硬件设施上如何分配, 即在IVE形成阶段的市场与运行阶段IVE中，如何分配到其中的计算机系统。 CrossWork系统不是构建固定的市场/IVE上下文中，但是必须支持面向流程的IVE。因此，我们不可能为该架构设计一个具体的物理视图。
+这里我们仅看一下这种场景,并不是所有IVE成员有足够的IT设施支持系统的运行功能, 当IVE中有SMEs时,很可能出现类似场景。为了支持具有有限IT设施的IVE成员的正常工作，我们采用提供应用服务的方法，这意味着具有充足的基础设施的IVE成员可以提供应用服务给缺乏设施的成员，这里可以使用远程客户端技术作为支持。
+
+<centter>
+<img src="img/enactment-topology.png"/>
+</center>
+
+蓝色的是remote workflow clients, 红色的是Enactment模块，即IT resources.
